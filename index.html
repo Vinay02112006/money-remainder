@@ -1,0 +1,298 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>💸 Money Back Reminder</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" />
+  <link rel="manifest" href="manifest.json">
+  <link rel="icon" href="icon-192.png" sizes="192x192" type="image/png">
+  <meta name="theme-color" content="#2563eb">
+  <style>
+    :root {
+      --bg: #f9fafb;
+      --text: #111827;
+      --card: #ffffff;
+      --accent: #2563eb;
+      --accent-hover: #1d4ed8;
+    }
+    body.dark {
+      --bg: #0f172a;
+      --text: #f1f5f9;
+      --card: #1e293b;
+      --accent: #3b82f6;
+      --accent-hover: #2563eb;
+    }
+    body {
+      font-family: 'Inter', sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      margin: 0;
+      padding: 0;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+    main {
+      width: 100%;
+      max-width: 500px;
+      padding: 20px;
+    }
+    h1 {
+      text-align: center;
+      font-size: 1.8em;
+      margin: 10px 0 20px;
+    }
+    .toggle-container {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 10px;
+    }
+    .toggle-switch {
+      position: relative;
+      display: inline-block;
+      width: 48px;
+      height: 24px;
+    }
+    .toggle-switch input {
+      opacity: 0;
+      width: 0;
+      height: 0;
+    }
+    .slider {
+      position: absolute;
+      cursor: pointer;
+      top: 0; left: 0; right: 0; bottom: 0;
+      background-color: #ccc;
+      transition: 0.4s;
+      border-radius: 34px;
+    }
+    .slider:before {
+      content: "";
+      height: 18px;
+      width: 18px;
+      position: absolute;
+      left: 3px;
+      bottom: 3px;
+      background-color: white;
+      transition: 0.4s;
+      border-radius: 50%;
+    }
+    input:checked + .slider {
+      background-color: var(--accent);
+    }
+    input:checked + .slider:before {
+      transform: translateX(24px);
+    }
+    form, .controls, .reminder {
+      background: var(--card);
+      padding: 15px;
+      border-radius: 12px;
+      margin-bottom: 15px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+    }
+    input, button, select {
+      width: 100%;
+      padding: 10px;
+      margin-top: 10px;
+      border-radius: 8px;
+      border: 1px solid #ccc;
+      font-size: 1em;
+    }
+    button {
+      background: var(--accent);
+      color: white;
+      border: none;
+      cursor: pointer;
+      font-weight: bold;
+    }
+    button:hover {
+      background: var(--accent-hover);
+    }
+    .reminder {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+    .reminder.returned {
+      opacity: 0.5;
+      text-decoration: line-through;
+    }
+    .reminder strong {
+      font-size: 1.05em;
+    }
+    .reminder i {
+      margin-right: 6px;
+      color: var(--accent);
+    }
+    footer {
+      text-align: center;
+      padding: 12px;
+      font-size: 0.85em;
+      color: #9ca3af;
+    }
+  </style>
+</head>
+<body>
+  <main>
+    <div class="toggle-container">
+      <span style="font-weight: 600;">Mode</span>
+      <label class="toggle-switch">
+        <input type="checkbox" id="darkToggle">
+        <span class="slider"></span>
+      </label>
+    </div>
+
+    <h1>💸 Money Back Reminder</h1>
+
+    <form id="reminderForm">
+      <input type="text" id="name" placeholder="Person's Name" required />
+      <input type="number" id="amount" placeholder="Amount (₹)" required />
+      <input type="number" id="interest" placeholder="Interest (₹)" />
+      <input type="date" id="date" required />
+      <button type="submit"><i class="fas fa-plus-circle"></i> Add Reminder</button>
+    </form>
+
+    <div class="controls">
+      <input type="text" id="search" placeholder="🔍 Search by name..." />
+      <select id="sortBy">
+        <option value="date">📅 Sort by Date</option>
+        <option value="name">🔤 Sort by Name</option>
+        <option value="amount">💰 Sort by Amount</option>
+      </select>
+    </div>
+
+    <div id="reminders"></div>
+  </main>
+
+  <footer>&copy; 2025 Money Reminder App</footer>
+
+  <script>
+    const form = document.getElementById('reminderForm');
+    const remindersDiv = document.getElementById('reminders');
+    const searchInput = document.getElementById('search');
+    const sortBy = document.getElementById('sortBy');
+    const darkToggle = document.getElementById('darkToggle');
+    let reminders = [];
+
+    if (localStorage.getItem('darkMode') === 'true') {
+      document.body.classList.add('dark');
+      darkToggle.checked = true;
+    }
+
+    darkToggle.addEventListener('change', () => {
+      document.body.classList.toggle('dark');
+      localStorage.setItem('darkMode', darkToggle.checked);
+    });
+
+    if (localStorage.getItem('reminders')) {
+      reminders = JSON.parse(localStorage.getItem('reminders'));
+    }
+
+    form.addEventListener('submit', function(e) {
+      e.preventDefault();
+      const name = document.getElementById('name').value.trim();
+      const amount = parseFloat(document.getElementById('amount').value);
+      const interest = parseFloat(document.getElementById('interest').value) || 0;
+      const date = document.getElementById('date').value;
+
+      if (!name || isNaN(amount) || !date) {
+        alert("Please fill out all required fields correctly.");
+        return;
+      }
+
+      const reminder = {
+        id: Date.now(),
+        name,
+        amount,
+        interest,
+        date,
+        returned: false
+      };
+
+      reminders.push(reminder);
+      saveReminders();
+      renderReminders();
+      form.reset();
+    });
+
+    function renderReminders() {
+      const query = searchInput.value.toLowerCase();
+      let filtered = reminders.filter(r => r.name.toLowerCase().includes(query));
+
+      const sortType = sortBy.value;
+      filtered.sort((a, b) => {
+        if (sortType === 'name') return a.name.localeCompare(b.name);
+        if (sortType === 'amount') return b.amount - a.amount;
+        if (sortType === 'date') return new Date(a.date) - new Date(b.date);
+        return 0;
+      });
+
+      remindersDiv.innerHTML = '';
+      if (filtered.length === 0) {
+        remindersDiv.innerHTML = "<p style='text-align:center;'>No results found.</p>";
+        return;
+      }
+
+      filtered.forEach(reminder => {
+        const total = reminder.amount + reminder.interest;
+        const div = document.createElement('div');
+        div.className = 'reminder' + (reminder.returned ? ' returned' : '');
+        div.innerHTML = `
+          <strong><i class="fa-solid fa-user"></i> ${reminder.name}</strong>
+          <div><i class="fa-solid fa-coins"></i> Amount: ₹${reminder.amount}</div>
+          ${reminder.interest ? `<div><i class="fa-solid fa-percent"></i> Interest: ₹${reminder.interest}</div>` : ''}
+          <div><i class="fa-solid fa-money-bill-wave"></i> Total: ₹${total.toFixed(2)}</div>
+          <div><i class="fa-solid fa-calendar-day"></i> Return by: ${reminder.date}</div>
+          <button onclick="markReturned(${reminder.id})">
+            <i class="fa-solid fa-check-circle"></i> ${reminder.returned ? 'Returned' : 'Mark as Returned'}
+          </button>
+        `;
+        remindersDiv.appendChild(div);
+      });
+    }
+
+    function markReturned(id) {
+      reminders = reminders.map(r => {
+        if (r.id === id) r.returned = true;
+        return r;
+      });
+      saveReminders();
+      renderReminders();
+    }
+
+    function saveReminders() {
+      localStorage.setItem('reminders', JSON.stringify(reminders));
+    }
+
+    searchInput.addEventListener('input', renderReminders);
+    sortBy.addEventListener('change', renderReminders);
+
+    if (Notification.permission !== 'granted') {
+      Notification.requestPermission();
+    }
+
+    setInterval(() => {
+      const today = new Date().toISOString().split('T')[0];
+      reminders.forEach(r => {
+        if (r.date === today && !r.returned) {
+          const total = r.amount + r.interest;
+          new Notification('💸 Reminder Today', {
+            body: `${r.name} should return ₹${total.toFixed(2)} today.`,
+          });
+        }
+      });
+    }, 60000);
+
+    // Register service worker for PWA
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.register('service-worker.js');
+    }
+
+    renderReminders();
+  </script>
+</body>
+</html>
